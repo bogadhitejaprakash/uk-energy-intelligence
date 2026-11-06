@@ -1,0 +1,49 @@
+// =====================================================================
+// DAX measures for the UK Energy Intelligence dashboard
+// Create a table called _Measures (Home > Enter data > OK) and add each
+// measure to it: select _Measures > New measure > paste ONE block.
+// =====================================================================
+
+// ---------- Demand ----------
+Avg Demand (GW) =
+    AVERAGE ( fact_halfhourly[nd_mw] ) / 1000
+
+Avg Underlying Demand (GW) =
+    AVERAGE ( fact_halfhourly[underlying_demand_mw] ) / 1000
+
+Peak Demand (GW) =
+    MAX ( fact_halfhourly[nd_mw] ) / 1000
+
+Grid Energy (TWh) =
+    SUM ( fact_daily[nd_energy_gwh] ) / 1000
+
+Underlying Energy (TWh) =
+    SUM ( fact_daily[underlying_energy_gwh] ) / 1000
+
+// Share of consumption met by embedded solar/wind, invisible to the grid
+Hidden Demand % =
+    DIVIDE ( [Underlying Energy (TWh)] - [Grid Energy (TWh)], [Underlying Energy (TWh)] )
+
+Solar Capacity (GW) =
+    MAX ( fact_daily[solar_capacity_mw] ) / 1000
+
+// Year-on-year change (needs dim_date marked as the date table)
+Avg Demand YoY % =
+    VAR cur  = [Avg Demand (GW)]
+    VAR prev = CALCULATE ( [Avg Demand (GW)], SAMEPERIODLASTYEAR ( dim_date[date] ) )
+    RETURN IF ( NOT ISBLANK ( prev ), DIVIDE ( cur - prev, prev ) )
+
+Days Above 40 GW =
+    COUNTROWS ( FILTER ( fact_daily_peaks, fact_daily_peaks[peak_nd_mw] > 40000 ) )
+
+// ---------- NESO day-ahead forecast accuracy ----------
+// AVERAGE ignores blanks, so periods without a NESO forecast are skipped
+NESO MAE (MW) =
+    AVERAGE ( fact_halfhourly[neso_abs_error_mw] )
+
+NESO MAPE % =
+    AVERAGE ( fact_halfhourly[neso_ape_pct] ) / 100
+
+// Positive = NESO over-forecast demand
+NESO Bias (MW) =
+    AVERAGE ( fact_halfhourly[neso_error_mw] )
